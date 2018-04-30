@@ -61,38 +61,38 @@ class Maxp:
             #print("B Best Value: ",type(best_val))
             #print("B Regions: ",self.current_regions)
             #print("B A2R: ",self.current_area2region)
-            alist = []
-            blist = []
-            for i in range(initial):
-                alist.append(results[i][3])
-                blist.append(len(results[i][0]))
-            aindex = alist.index(sorted(alist)[0])
-            bestsol = results[aindex]
+#            alist = []
+#            blist = []
+#            for i in range(initial):
+#                alist.append(results[i][3])
+#                blist.append(len(results[i][0]))
+#            aindex = alist.index(sorted(alist)[0])
+#            bestsol = results[aindex]
 #            print('Best solution: ',alist)
 #            print('Number of reg: ',blist)
-            self.current_regions = bestsol[0]
-            self.current_area2region = bestsol[1]
-            best_val = bestsol[3]
-            for i in range(initial):
-                self.regions = results[i][0]
-                self.area2region = results[i][1]
-                self.p = len(self.regions)
-                best_val = results[i][3]
-                print('Best Value: ',best_val)
-                print('Number of regions: ',self.p)
-                self.swap()
-                print('New Best Value: ',self.objective_function())
+#            self.current_regions = bestsol[0]
+#            self.current_area2region = bestsol[1]
+#            best_val = bestsol[3]
+#            for i in range(initial):
+#                self.regions = results[i][0]
+#                self.area2region = results[i][1]
+#                self.p = len(self.regions)
+#                best_val = results[i][3]
+#                print('Best Value: ',best_val)
+#                print('Number of regions: ',self.p)
+#                self.swap()
+#                print('New Best Value: ',self.objective_function())
 #            print('Best Values: ',alist)
 #            print("Reg: ",c_regions)
 #            print("A2R1: ",c_a2r)
-#            for i in range(initial):
-#                if results[i][3] < best_val:
-#                    self.current_regions = results[i][0]
-#                    self.current_area2region = results[i][1]
-                    #self.current_borders = results[i][2]
-                    #self.current_neighbors_b = results[i][3]
-#                    best_val = results[i][3]
-#            print("Best Value: ",best_val)
+            for i in range(initial):
+                if results[i][2] >= self.p:
+                    if results[i][3] < best_val:
+                        self.current_regions = results[i][0]
+                        self.current_area2region = results[i][1]
+                        self.p = results[i][2]
+                        best_val = results[i][3]
+            print("Best Value: ",best_val)
 #            print("Regions: ",self.current_regions)
 #            print("A2R: ",self.current_area2region)
             #results = self.th_func()
@@ -100,24 +100,24 @@ class Maxp:
             #print(results)
             #print("Viney")
             #file.write("--- %s seconds for loop---" % (time.time() - start_time_loop))
-#            print("--- %s seconds for loop---" % (time.time() - start_time_loop))
-#            self.regions = copy.copy(self.current_regions)
-#            self.p = len(self.regions)
-#            self.area2region = self.current_area2region
+            print("--- %s seconds for loop---" % (time.time() - start_time_loop))
+            self.regions = copy.copy(self.current_regions)
+            self.p = len(self.regions)
+            self.area2region = self.current_area2region
             #self.borders = copy.copy(self.current_borders)
             #self.neighbors_b = copy.copy(self.current_neighbors_b)
-#            print("Number of regions", self.p)
+            print("Number of regions", self.p)
 #            if verbose:
 #                print("smallest region ifs: ", min([len(region) for region in self.regions]))
 #                print("---Viney Mulle---")
 #
 #                raw_input='wait'
 #				
-#            start_time_swap = time.time()
-#
-#            self.swap()
+            start_time_swap = time.time()
+
+            self.swap()
             #file.write("--- %s seconds for swap---" % (time.time() - start_time_swap))
-#            print("--- %s seconds for swap---" % (time.time() - start_time_swap),"New Value: ", self.objective_function())
+            print("--- %s seconds for swap---" % (time.time() - start_time_swap),"New Value: ", self.objective_function())
             #file.close()
 
     def th_func(self,i):
@@ -138,15 +138,18 @@ class Maxp:
             neighbors_b = []
             enclaves = []
             if not self.seeds:
+                process = multiprocessing.current_process()
                 candidates = copy.copy(self.w.id_order)
-                candidates = np.random.permutation(candidates)
+                candidates = np.random.RandomState(seed=int(process.pid+time.time())).permutation(candidates)
                 candidates = candidates.tolist()
+#                print('Candidates: ',process.pid,candidates)
             else:
                 seeds = copy.copy(self.seeds)
                 nonseeds = [i for i in self.w.id_order if i not in seeds]
                 candidates = seeds
                 candidates.extend(nonseeds)
             while candidates:
+                st= time.time()
                 seed = candidates.pop(0)
                 # try to grow it till threshold constraint is satisfied
                 region = [seed]
@@ -176,6 +179,7 @@ class Maxp:
                             #print region
                             enclaves.extend(region)
                             building_region = False
+                print('Each process time: ', process.pid, time.time() - st)
             # check to see if any regions were made before going to enclave stage
             if regions:
                 feasible = True

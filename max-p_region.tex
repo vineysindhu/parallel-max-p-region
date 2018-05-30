@@ -73,14 +73,15 @@ Given a set of n areas spatially covering a geographical zone such as a
 province, forming contiguous regions from homogeneous neighboring areas
 satisfying a minimum threshold criteria over each region is an interesting
 NP-hard problem that has applications in various domains such as political
-science, GIS, etc. In this paper, we focus on a specific case, called Max-p
+science, GIS, etc. In this paper, we focus on a specific case, called the Max-p
 regions problem, in which the main objective is to maximize the number of regions while
-keeping heterogeneity in each region as small as possible. The solution is
+keeping heterogeneity in each region as small as possible subject to a threshold
+constraint. The solution is
 broken into two phases. 1) Construction phase: starting from random areas (seeds), the algorithm builds each region by adding neighboring areas to each
 growing seed until the region reaches out to the threshold. Then, all the
 unassigned regions called enclaves are assigned to their neighboring regions.
 2) Optimization phase: tries to improve the feasible solution from phase one by swapping
-areas at the border of each region with each neighbors. In this paper, we
+areas at the border of each region with areas from each neighboring region. In this paper, we
 present a parallel implementation of Max-p problem using Python multiprocessing
 library. By exploiting a intuitive data structure based on multi-locks, we
 achieves up 200-fold and 19-fold speeds up over the best sequential algorithm for
@@ -94,11 +95,11 @@ Clustering, Geospatial, Multiprocessing, Optimization
 \end{IEEEkeywords}
 
 \section{Introduction}
-Clustering geographical areas into homogenous regions have many applications in
+Clustering geographical areas into homogenous regions has many applications in
 various domains such as urban development, districting, transport planning,
 analyzing crime rates etc~\cite{r26}. The homogeneous region can be defined as a set
 of contiguous areas with high degree of similarity for a given attribute such as
-per capita income, population etc. Generally speaking, problems of this kind are
+per capita income, population density etc. Generally speaking, problems of this kind are
  NP-hard~\cite{r1} as the size of geographical areas to be
 grouped into homogeneous regions increases, the clustering running time
 increases exponentially. Hence, it is important to utilize the parallel
@@ -118,8 +119,8 @@ solution strategies have been contributed by researchers.
 
 Availability of highly disaggregated spatial data and computational resources
 provides the opportunity for researchers to explore new applications of these
-clustering models. New opportunities bring new challenges and one of the
-challenges is ever-increasing data size. DiMOS lab working under the direction of Dr. Prasad has already laid out the roadmap~\cite{r34,r35} on using GPUs for the parallel processing of geospatial datasets. There are many available algorithms to cluster the areas into homogeneous regions, however, most of them are not
+clustering models. New opportunities bring new challenges, and one of the
+challenges is ever-increasing data size. DiMOS lab, working under the direction of Dr. Prasad, has already laid out the roadmap~\cite{r34,r35} on using GPUs for the parallel processing of geospatial datasets. There are many available algorithms to cluster the areas into homogeneous regions, however, most of them are not
 scalable. Another challenge is to decide on the number of homogeneous regions to
 be formed after clustering. Most of the available models require the number of
 regions as input. Also in order to decide on the best clustering model for a set
@@ -131,10 +132,16 @@ which will make a region suitable for analysis. This information can be used as
 criteria to decide the number of regions.
 
 In this paper, we use the clustering model explained in~\cite{r1} as the max-p
-problem. The max-p region model is implemented in python, therefore, to have a benchmark for evaluation of our work, we have also used python for this research. Another reason to use python is that lot of researchers are familiar with python and use it on day to day basis for analysis. 
+problem. The max-p region model is implemented in Python, therefore, to have a benchmark for evaluation of our work, we have also used Python for this research. Another reason to use Python is that lot of researchers are familiar with Python and use it on day to day basis for analysis. 
 
 The problem aggregates $n$ areas into an unknown maximum number of homogeneous regions, where each region satisfies a minimum threshold value for a
-given spatial attribute. The problem is formulated as an Integer Linear Programming (ILP) with a two-part objective function. The algorithm has two phases: first, it tries to form as many initial regions as possible (the first part of the objective function) by starting from random areas called seeds and grow them until each region reaches to the threshold. The remaining areas that do not form regions in the first step are called enclaves and are assigned to the regions. In the second phase, the algorithm tries to optimize the objective function among those solutions with the maximum number of regions (the second part of the objective function). This goal is achieved by exchanging areas in the border of two neighboring regions. Unlike other models, this model does not impose any constraint on the shape of the regions, instead, the number of regions ($p$) and shape of the regions are data dependent and are decided by the algorithm at runtime. The
+given spatial attribute. The problem is formulated as an Integer Linear
+Programming (ILP) with a two-part objective function. The algorithm has two
+phases: first, it tries to form as many initial regions as possible (the first
+part of the objective function) by starting from random areas called seeds and
+grow them until each region reaches the threshold. The remaining areas that do
+not form regions in the first step are called enclaves and are assigned to their
+proximal regions. In the second phase, the algorithm tries to optimize the objective function among those solutions with the maximum number of regions (the second part of the objective function). This goal is achieved by exchanging areas in the border of two neighboring regions. Unlike other models, this model does not impose any constraint on the shape of the regions, instead, the number of regions ($p$) and shape of the regions are data dependent and are decided by the algorithm at runtime. The
 max-p model tries to maximize the number of homogeneous regions, based on a predefined minimum threshold value. The degree of aggregation bias is minimized by maximizing the homogeneity within the regions. In this paper, we exploit parallel processing to improve the performance of the max-p model. We also use parallel synergy to improve the accuracy of solutions by trying more solutions in parallel as well as exploiting a fine parallelism model in each solution. Multiple solutions are created simultaneously on multiple processors in parallel and then compared to choose the best feasible solution. Then all the regions of the best feasible solution are processed on multiple processors in parallel to optimize and increase homogeneity within them.
 
 In summary, our key contributions in this work are:
@@ -157,7 +164,15 @@ The rest of the paper is organized as follows. In Section 2, we present literatu
 \section{Literature Review}
 In this section, we present a brief survey on various methods of clustering areas into set of homogeneous regions. Algorithm used in one of the methods~\cite{r4, r5} to aggregate areas in to regions has two parts. First part of the algorithm aggregate areas into regions using conventional clustering algorithm. In this part, areas are clustered based on the attributes and not on the locations. In second part of the algorithm, regions are created as subsets of the spatially contiguous areas from the already created clusters. Number of regions created from this method depends on the attributes used to calculate homogeneity within regions~\cite{r7}.
 
-Another method~\cite{r6, r8} uses $x$ and $y$ coordinates of the centroids of areas as additional attributes in conventional clustering algorithm. Due to these additional attributes nearby areas will be clustered together. Regions will be spatially contiguous, however, contiguity of the areas within the region depends on the weights assigned to $x$ and $y$ coordinates as compared to other attributes~\cite{r24}. Increase in weights of $x$ and $y$ coordinates will increase the spatial contiguity within the regions, however, it will lead to decrease in weights assigned to other attributes which in turn decreases the homogeneity within the regions. Main challenge of this method is to decide on how to assign weights to the attributes~\cite{r6, r16, r20}.
+Another method~\cite{r6, r8} uses $x$ and $y$ coordinates of the centroids of
+areas as additional attributes in conventional clustering algorithm. Due to
+these additional attributes nearby areas will be clustered together. Regions may
+not be spatially contiguous, however, contiguity of the areas within the region
+depends on the weights assigned to $x$ and $y$ coordinates as compared to other
+attributes~\cite{r24}. Increase in weights of $x$ and $y$ coordinates will
+increase the spatial contiguity within the regions, however, it will lead to
+decrease in weights assigned to other attributes which in turn decreases the
+homogeneity within the regions. The main challenge of this method is to decide on how to assign weights to the attributes~\cite{r6, r16, r20}.
 
 There are other methods~\cite{r7, r8, r14, r15, r18} that ensure spatial contiguity based on the information from neighbouring structure. For example, adapted hierarchical clustering algorithms~\cite{r11, r13, r22} allows to merge clusters only if they share common borders. Another example is graph theory based algorithms~\cite{r12, r17, r24} which represents areas and neighbouring structures as connected graphs.
 
@@ -168,7 +183,11 @@ The main goal of max-p region problem is to cluster the areas into the maximum n
 homogeneous regions such that each region satisfies a predefined minimum
 threshold value for a given spatially extensive attribute~\cite{r1}. A spatially extensive
 attribute refers to a parameter that we want to be greater than a minimum
-threshold for each cluster. The second goal of this model is to achieve the most
+threshold for each cluster. For example, in applications of spatial epidemiology
+or criminology where the study of rates is the focus, there is a desire to
+aggregate areas to ensure that the size of the population at risk (the
+denominator of the rate) attains a minimum size to stabilize the variance of the
+rate estimates. The second goal of this model is to maximize 
 homogeneity within each cluster. In the other words, max-p aims to minimize total
 heterogeneity of all clusters. We will define this term later in this section.
 The way max-p prioritizes these two goals is that if two clustering
@@ -183,7 +202,7 @@ $Area:$\\
 Given n areas $A = \{A_1, A_2, ..., A_n\}$, ($n = |A|$) and m attributes
 assigned to each area such that $A_{i,\;y}$ is the y-th attribute of area $A_i$
 where $1 \le y \le m$. Also, let $l_i$ denote a parameter that we want to be greater than a minimum
-threshold of area $A_i$.\\ \\ $Relationship:$\\ Let $d : A \times A \rightarrow R^+ \cup
+threshold for each region.\\ \\ $Relationship:$\\ Let $d : A \times A \rightarrow R^+ \cup
 \{0\}$ be the dissimilarity between areas based on the set of attributes $Y$
 such that $d_{ij}\ \equiv \ d(A_i,\ A_j)$ satisfies the conditions $d_{ij}\ \geq
 0, d_{ij}\ =\ d_{ji}\ and\ d_{ii}\ =\ 0$ for $i,\ j\ =\ 1,\ 2,\ .\ .\ .\ ,\ n.$
@@ -298,9 +317,9 @@ $A_{1}$\newline $y_{1} = 3000,$ $l_{1} = 23$ & $A_{2}$\newline $y_{2} = 3200,$ $
 \end{table*}
 
 As shown in Tables~\ref{tab:tab1}, there are three solutions for partitioning
-these areas where Solution 2 and 3 reach to the maximum number of regions.
-Therefore, Solution 1 is not a feasible solution as there are other solutions with
-more number of regions. Hence, Solution 2 and Solution 3 are the feasible solutions
+these areas where Solution 2 and 3 reach the maximum number of regions.
+Therefore, Solution 1 is dominated by other solutions with
+larger number of regions. Hence, Solution 2 and Solution 3 are the feasible solutions
 as we can see that it is not possible to have more than three regions with at
 least 100 people per region. Also, we can see that Solution 3 has heterogeneity
 lower than that of Solution 2. Therefore, Solution 3 is the best feasible
@@ -314,7 +333,7 @@ areas into the maximum number of homogeneous regions. The algorithm has two phas
 the construction phase and the optimization phase. The construction phase generates a
 feasible solution and optimization phase improves the feasible solution by
 minimizing the heterogeneity within the regions through local swapping of areas
-between neighbouring regions.\footnote{This two phase algorithm is adopted from~\cite{r1}. We extend the python implementation from~\cite{r1}}
+between neighbouring regions.\footnote{This two phase algorithm is adopted from~\cite{r1}. We extend the Python implementation from~\cite{r1}}
 
 \subsection{Construction Phase}
 In this phase, areas are clustered into the maximum number of regions based on
@@ -327,7 +346,7 @@ finish successfully, we compare the output of each process and select the best
 feasible solution. We use the objective function explained in~\cite{r1} to
 decide on which solution is the best out of all the solutions.
 
-Objective function is a minimization function which can be formulated as follows~\cite{r1}.
+The objective function to be minimized  can be formulated as follows~\cite{r1}.
 
 Parameters:\\
 $i$ = index of areas,\\
@@ -352,7 +371,13 @@ Minimize:
 Z = (-\sum_{k=1}^n \sum_{i=1}^n x_i^{k0}) *10^h + \sum_{i} \sum_{j|j>i} d_{ij} t_{ij}
 \end{equation*}
 
-The objective function consists of two parts, one part controls the number of regions and second part controls the total heterogeneity $H(P_p)$. The first part is obtained by adding the number of areas designated as root areas ($X_i^{k0}$), and the second part is obtained by adding the pairwise dissimilarities between areas assigned to the same region. Since the objective function is formulated as a minimization problem, we multiply the first term by minus one.
+The objective function consists of two parts, the first controls the number of
+regions and second controls the total heterogeneity $H(P_p)$. The first
+part is obtained by adding the number of areas designated as root areas
+($X_i^{k0}$), and the second part is obtained by summing the pairwise
+dissimilarities between areas assigned to the same region. Since the objective
+function is formulated as a minimization problem, we multiply the first term by
+minus one.
 
 These two parts are combined together in such a way that there is an implicit
 hierarchy where the number of regions comes before the impact of total
@@ -631,7 +656,7 @@ Processor 6272 with 64GB main memory for comparison against 16-core Intel.
 \subsection{Experiments and Results}
 
 In this section, we evaluate the performance of our algorithm. We have created
-regular lattices using $numpy$ library available in python. Three different sets
+regular lattices using $numpy$ library available in Python. Three different sets
 of lattices ($20\times 20$, $33\times 33$, $55\times 56$) are created for the
 evaluation. We considered two areas to be neighbours if and only if they share a
 line (rook). We have also used three different thresholds for spatially
@@ -844,11 +869,11 @@ Lattice & \multicolumn{2}{|c|}{threshold = 100} & \multicolumn{2}{|c|}{threshold
 We have also analysed the effect of movement of areas from one region to another on
 objective function value. The decrease in objective function value is directly
 proportional to the movement of areas from one region to another in each
-iteration of optimization phase. The more areas move from one region to another,
-the more the decrease in objective function value. Table~\ref{tab:tab6} presents
-the decrease in objective function value with the decrease in the number of areas
+iteration of optimization phase. More areas moving from one region to another
+decreases the value of the objective function. Table~\ref{tab:tab6} presents
+the decrease in objective function value with the increase in the number of areas
 moved from one region to another. There are few outliers also, for example in
-iteration 3 number of areas moved decreased, however, decrease in objective
+iteration 3 number of areas moved decreased while the objective
 function value increased.
 
 \begin{table*}[!htbp]
@@ -895,7 +920,7 @@ Iteration & Number of areas moved & Decrease in Objective Function Value & Perce
 \end{center}
 \end{table*}
 
-Since we are doing the filtering of the list of areas and regions multiple times in our code, we decided to run a small experiment to explore various methods to filter the list and see which one gives the best performance. We tried the below methods and found that list compression method is the fastest of all the methods to filter the python lists.
+Since we are doing the filtering of the list of areas and regions multiple times in our code, we decided to run a small experiment to explore various methods to filter the list and see which one gives the best performance. We tried the below methods and found that list compression method is the fastest of all the methods to filter the Python lists.
 
 Running time using set(a) - set(b) : 2.86102294921875e-06 seconds\\
 Code - list(set(neighbors)-set(enclaves))
@@ -914,7 +939,7 @@ Code - list(filter(lambda x: x not in set(enclaves), neighbors))
 We did the following experiments to explore the synergy of the parallel max-p region algorithm. 
 
 \subsubsection*{Analysis of top solutions after the construction phase:}
-First, we analysed the top feasible solutions that we get after construction phase of the algorithm. Table ~\ref{tab:tab8}, ~\ref{tab:tab9} and ~\ref{tab:tab10} presents the analysis for 20x20, 33x33 and 55x56 lattices with threshold 25 respectively. All the solutions present in the tables give the maximum number of regions for their respective lattice size. We can see from the table ~\ref{tab:tab8} that our algorithm will select the solution with minimum objective function value after construction phase and tries to optimize it. Hence, Solution 1 will be chosen for optimization. However, when we analysed other top solutions, we found that Solution 5, does not have minimum objective function value after construction phase, but it gives us best results after optimization phase. Similarly, in the table ~\ref{tab:tab9}, Solution 3 gives the best results after optimization, however, it will not be selected at first by the algorithm. Also, in the table ~\ref{tab:tab10}, Solution 5 gives the best results.
+First, we analysed the top feasible solutions obtained after construction phase of the algorithm. Table ~\ref{tab:tab8}, ~\ref{tab:tab9} and ~\ref{tab:tab10} presents the analysis for 20x20, 33x33 and 55x56 lattices with threshold 25 respectively. All the solutions present in the tables give the maximum number of regions for their respective lattice size. We can see from the table ~\ref{tab:tab8} that our algorithm will select the solution with minimum objective function value after construction phase and tries to optimize it. Hence, Solution 1 will be chosen for optimization. However, when we analysed other top solutions, we found that Solution 5, does not have minimum objective function value after construction phase, but it gives us best results after optimization phase. Similarly, in the table ~\ref{tab:tab9}, Solution 3 gives the best results after optimization, however, it will not be selected at first by the algorithm. Also, in the table ~\ref{tab:tab10}, Solution 5 gives the best results.
 
 \begin{table*}[!htbp] 
 \begin{center}

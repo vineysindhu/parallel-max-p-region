@@ -38,6 +38,7 @@
 \def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
     T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
 \begin{document}
+\pagestyle{plain}
 
 \title{EXPLORING PARALLEL EFFICIENCY AND SYNERGY FOR MAX-P REGION PROBLEM USING PYTHON\\
 }
@@ -69,25 +70,22 @@ sergio.rey@ucr.edu}}
 \maketitle
 
 \begin{abstract}
-Given a set of n areas spatially covering a geographical zone such as a
+Given a set of areas spatially covering a geographical zone such as a
 province, forming contiguous regions from homogeneous neighboring areas
-satisfying a minimum threshold criteria over each region is an interesting
+satisfying a minimum population of each region is an interesting
 NP-hard problem that has applications in various domains such as political
 science, GIS, etc. In this paper, we focus on a specific case, called the Max-p
 regions problem, in which the main objective is to maximize the number of regions while
 keeping heterogeneity in each region as small as possible subject to a threshold
 constraint. The solution is
-broken into two phases. 1) Construction phase: starting from random areas (seeds), the algorithm builds each region by adding neighboring areas to each
-growing seed until the region reaches out to the threshold. Then, all the
-unassigned regions called enclaves are assigned to their neighboring regions.
-2) Optimization phase: tries to improve the feasible solution from phase one by swapping
-areas at the border of each region with areas from each neighboring region. In this paper, we
-present a parallel implementation of Max-p problem using Python multiprocessing
-library. By exploiting a intuitive data structure based on multi-locks, we
-achieves up 200-fold and 19-fold speeds up over the best sequential algorithm for
-the construction and optimization phases respectively. Also, the overall end to
+broken into two phases. 1) Construction phase: to build feasible solution and
+2) Optimization phase: to improve the feasible solution from the construction phase by swapping
+areas at the border of each region. In this paper, we
+present a parallel implementation of Max-p algorithm using Python multiprocessing
+library. We achieve up 200-fold and 19-fold speeds up over the sequential algorithm by algorithmic and data structure improvements and by efficient parallel implementation for
+the construction and optimization phases respectively. The overall end to
 end running time of our implementation is 35 times faster than this sequential
-algorithm. We provide extensive experimental results to verify our algorithm.
+algorithm. We provide extensive experimental results to benchmark our algorithms.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -97,7 +95,7 @@ Clustering, Geospatial, Multiprocessing, Optimization
 \section{Introduction}
 Clustering geographical areas into homogenous regions has many applications in
 various domains such as urban development, districting, transport planning,
-analyzing crime rates etc~\cite{r26}. The homogeneous region can be defined as a set
+analyzing crime rates etc~\cite{r26}. A homogeneous region can be defined as a set
 of contiguous areas with high degree of similarity for a given attribute such as
 per capita income, population density etc. Generally speaking, problems of this kind are
  NP-hard~\cite{r1} as the size of geographical areas to be
@@ -152,8 +150,6 @@ In summary, our key contributions in this work are:
 \item Parallelizing the optimization phase of finding the best feasible solution that is up to 19 times faster than the best sequential algorithm.
 
 \item End to end running time of our parallel implementation achieves 35-fold speed up over the best sequential algorithm for the largest ($56\times 55$) lattice size.
-
-\item Using a parallel data structure based on multiple locks to reduce parallelism overhead.
 
 \item By taking advantage of parallel synergy, we often improve the secondary objective function better then sequential algorithm by exploring the exponential search space in parallel.
 
@@ -388,8 +384,9 @@ total heterogeneity, but $h$ is big enough such that, regardless of the value of
 heterogeneity, the objective function will never reach $-(p-1) \ast 10^h$.
 
 \begin{algorithm}
+\renewcommand{\thealgorithm}{}
 \scriptsize
-\caption{: Find best feasible solution~\cite{r1}}
+\caption{: Parallel Construction~\cite{r1}}
 $A$ : set of areas,\\
 $l$ : spatially extensive attribute of areas,\\
 $W$ : neighborhoods,\\
@@ -402,6 +399,7 @@ $ns$ : Number of solutions\\
 \begin{algorithmic}
 \vbox{\colorbox{yellow}{\vbox{\STATE \textbf{for} each processor;i = 1 to $ns$ \textbf{do in parallel}}}} 
 \begin{ALC@g}
+	\STATE Region Growing:
 	\WHILE{$A^u \neq empty$}
 		\STATE $A_k$ = select at random, one area from $A^u$
 		\STATE $A^u = A^u - A_k$
@@ -425,6 +423,7 @@ $ns$ : Number of solutions\\
 			\ENDIF
 		\ENDWHILE
 	\ENDWHILE
+	\STATE Enclave Assignment:
 	\IF{$\Psi \neq empty$}
 		\STATE feasible = True
 		\WHILE{$\epsilon \neq empty$}
@@ -451,8 +450,9 @@ $ns$ : Number of solutions\\
 
 
 \begin{algorithm}
+\renewcommand{\thealgorithm}{}
 \scriptsize
-\caption{: Find best feasible solution~\cite{r1}}
+\caption{: Improved Parallel Construction - Bulk Region Growing~\cite{r1}}
 $A$ : set of areas,\\
 $l$ : spatially extensive attribute of areas,\\
 $W$ : neighborhoods,\\
@@ -466,6 +466,7 @@ $ns$ : Number of solutions\\
 \begin{algorithmic}
 \vbox{\colorbox{yellow}{\vbox{\STATE \textbf{for} each processor;i = 1 to $ns$ \textbf{do in parallel}}}} 
 \begin{ALC@g}
+	\STATE Region Growing:
 	\WHILE{$A^u \neq empty$}
 		\STATE $A_k$ = select at random, one area from $A^u$
 		\STATE $A^u = A^u - A_k$
@@ -493,6 +494,7 @@ $ns$ : Number of solutions\\
 			\ENDIF
 		\ENDWHILE
 	\ENDWHILE
+	\STATE Enclave Assignment:
 	\IF{$\Psi \neq empty$}
 		\STATE feasible = True
 		\WHILE{$\epsilon \neq empty$}
@@ -520,7 +522,7 @@ $ns$ : Number of solutions\\
 The Construction phase has two different parts: region growing and enclave
 assignment.
 
-During region growing a random area is selected from the set of unassigned
+\subsubsection*{Region Growing: }During region growing a random area is selected from the set of unassigned
 areas. Then, this area is added to the region. We check if this newly
 formed region reaches the minimum threshold value of the spatial regional attribute.
 We stop growing the new region if the minimum threshold value is met, otherwise, we
@@ -531,14 +533,14 @@ to any region during growing part are called "enclaves". At the end of growing
 part, the algorithm generates set of growing regions and the enclaves are
 randomly placed in an enclave queue.
 
-A partial solution generated from growing sub-phase will be processed further by
+\subsubsection*{Enclave Assignment: }A partial solution generated from growing sub-phase will be processed further by
 an enclave assignment step where we pop the enclave queue and attempt to assign
 the enclave to a randomly selected neighbouring region. If the selected enclave
 is not yet contiguous to an existing region, it is returned to the end of the enclave
 queue. The process continues until the enclave queue is exhausted. The algorithm
 thus requires that the adjacency graph formed on the areas is connected.
 
-We have tried two different algorithm for construction phase. For the first algorithm, we generate multiple solutions on multiple processes without changing the existing algorithm to generate one solution at a time. For the second algorithm, along with generating multiple solutions on multiple processes, we have also changed the growing part of the algorithm to add multiple neighbours at a time instead of one at a time. Adding multiple areas at a time, helped us to improve the running time of the construction phase of the algorithm.
+\subsubsection*{Improved Parallel Algorithm: }We have tried two different algorithm for construction phase. For the first algorithm, we generate multiple solutions on multiple processes without changing the existing algorithm to generate one solution at a time. For the second algorithm, along with generating multiple solutions on multiple processes, we have also changed the growing part of the algorithm to add multiple neighbours at a time instead of one at a time. Adding multiple areas at a time, helped us to drastically improve the running time of the construction phase of the algorithm. The feasible solution quality was only marginally impacted.
 
 \subsection{Optimization Phase}
 In this phase, the best feasible solution from construction phase is optimized
@@ -556,6 +558,7 @@ repeated for all the regions in parallel until there is no such neighbour area
 which when is moved will further minimize the value of objective function.
 
 \begin{algorithm}
+\renewcommand{\thealgorithm}{}
 \scriptsize
 \caption{: Optimize $P_{feasible}$ to minimize heterogeneity~\cite{r1}}
 $A$ : set of areas,\\
@@ -642,16 +645,15 @@ $R_1$. Once, the movement is complete, $P_1$ will release the lock on region $R_
 \footnote{These codes can be downloaded the following link: https://github.com/vineysindhu/parallel-max-p-region.
 Also the code for sequential max-p region is available at the following link: https://github.com/pysal}
 
-\section{Experimental Results}
-\section{Performance Evaluation}
+\section{Experimental Results and Performance Evaluation}
 In this section first, we briefly explain the system we used for our experiments and then presents our results.
 \subsection{Experimental Setup}
 All the experiments employ a compute node that has 16-core Intel Xeon
 CPUE5-2650 V2 CPU running at a clock speed of 2.60 Ghz with 64GB main memory.
 All the code for this experiment is written in the Python programming language.
 The $multiprocessing$ library available in Python is used to connect to multiple
-processors. Also, we have used a compute node that has 64-core AMD Opteron(TM)
-Processor 6272 with 64GB main memory for comparison against 16-core Intel.
+processors. Also, we have used a compute node that has 64-core AMD Opteron
+Processor 6272 with 64GB main memory for comparison against 16-core Intel Xeon.
 
 \subsection{Experiments and Results}
 
@@ -660,18 +662,19 @@ regular lattices using $numpy$ library available in Python. Three different sets
 of lattices ($20\times 20$, $33\times 33$, $55\times 56$) are created for the
 evaluation. We considered two areas to be neighbours if and only if they share a
 line (rook). We have also used three different thresholds for spatially
-extensive attribute i.e. 25, 100 and 300. We have done several experiments to
-evaluate the performance parallel max-p region algorithm. All the experiments are done to explore either the parallel efficiency or the parallel synergy or both in the exponential space. Parallel efficiency means to reduce running time of the algorithm by using parallel processing. Parallel synergy means exploring exponential space by using parallel processing and trying to find the best feasible solution which gives us the minimum value of objective function. Our experiments show that we can achieve both efficiency and synergy by using multiple processes. We have divided the results section further into two parts, Evaluating the efficiency and Exploring synergy.
+extensive attribute, 25, 100 and 300. We have done several experiments to
+evaluate the performance of parallel max-p region algorithm. All the experiments are done to explore either the parallel efficiency or the parallel synergy or both in the exponential space search algorithm. Parallel efficiency goal is to reduce running time of the algorithm by using parallel processing. Parallel synergy goal is to explore exponential space by using parallel processing and trying to find the best feasible solution which gives us the lower value of the objective function compared to the sequential algorithm. Our experiments show that we can achieve both efficiency and synergy by using multiple processes. We have divided the results section further into two parts, evaluating the efficiency and exploring synergy.
 
-\subsubsection{Parallel Efficiency:}
+\subsubsection{\textbf{Parallel Efficiency}}
 
 We did several experiments to evaluate the performance of our algorithm in terms of running time efficiency. 
 
-\subsubsection*{Average running time comparison of parallel and sequential max-p region algorithm:}
+%\subsubsection*{Average running time comparison of parallel and sequential max-p region algorithm}
+\paragraph{Average running time comparison of parallel and sequential max-p region algorithm}
 First, we have compared the running time of our algorithm with that of sequential max-p
 implementation presented in~\cite{r1}. Table~\ref{tab:tab4} presents the average
 running time in seconds for different sets of lattices and different threshold
-values for both the sequential and the parallel max-p algorithm. All the timings are taken on Intel 16-core system by using 64 processes for the construction phase and for the optimization phase we have used the number of regions as the number of processes. As shown in table~\ref{tab:tab4}, the speed-up is increasing with lattice size, because smaller lattices form fewer regions. As a result, we are not able to take full advantage of multiprocessing capabilities of the system for small problems. We observed that running time for the optimization phase of a 20x20 lattice for a threshold value of 300 is almost 0, because only one region will be created for $n = 400$ and threshold 300, hence, there will be no optimization phase.
+values for both the sequential and the parallel max-p algorithm. All the timings are taken on Intel 16-core system by using 64 processes for the construction phase. For the optimization phase we have used the number of regions as the number of processes. As shown in Table~\ref{tab:tab4}, the speed-up is increasing with lattice size, because smaller lattices form fewer regions. As a result, we are not able to take full advantage of multiprocessing capabilities of the system for small problems. We observed that running time for the optimization phase of a 20x20 lattice for a threshold value of 300 is almost 0, because only one region will be created for $n = 400$ and threshold 300, hence, there will be no optimization phase.
 
 \begin{table*}[!htbp]
 \begin{center}
@@ -689,7 +692,7 @@ values for both the sequential and the parallel max-p algorithm. All the timings
 \hline
 \hline
 
-\multirow{4}{*}{Parallel Max-p}  &Construction& 1.76& 5.68 & 14.86 & 9.29 & 35.18 &104.98 &67.60 &271.32 &829.53\\
+\multirow{4}{*}{Naive Parallel Max-p}  &Construction& 1.76& 5.68 & 14.86 & 9.29 & 35.18 &104.98 &67.60 &271.32 &829.53\\
 \cline{2-11}
  & Optimization& 2.43 & 13.25 & 0.16 & 8.61 & 27.04 &83.36 &29.05 &109.86&320.85 \\
 \cline{2-11}
@@ -699,7 +702,7 @@ values for both the sequential and the parallel max-p algorithm. All the timings
 \hline
 \hline
 
-\multirow{4}{*}{New Parallel Max-p} &Construction & 0.54& 0.87 & 1.06 & 2.12 & 3.84 &6.41 &13.55 &25.80&48.88 \\
+\multirow{4}{*}{Improved Parallel Max-p} &Construction & 0.54& 0.87 & 1.06 & 2.12 & 3.84 &6.41 &13.55 &25.80&48.88 \\
 \cline{2-11}
  & Optimization& 3.61 & 10.85 & 0.17 & 10.64 &23.98 &69.91 &38.24&76.70 & 404.20 \\
 \cline{2-11}
@@ -707,44 +710,29 @@ values for both the sequential and the parallel max-p algorithm. All the timings
 \cline{2-11}
  & Speedup& 3.35 & 6.76 & 126.02 & 6.31 & 17.88 &25.61 &11.46 &45.77 &35.40\\
 \hline
-\hline
+%\hline
 
-\multirow{4}{*}{New Sequential Max-p} &Construction & 2.21& 4.31 & 5.95 & 12.80 & 24.39 &40.94 &89.39 &183.14&301.93 \\
-\cline{2-11}
- & Optimization& 3.26 & 15.37 & 0.01 & 13.59 & 93.27 &412.92 &94.38 & 754.04 & 3547.81 \\
-\cline{2-11}
- & Total& 5.47 & 19.68 & 5.96 & 26.39 & 117.66 &453.86 &183.77 &937.18 &3849.74\\
-\cline{2-11}
- & Speedup& 2.54 & 4.03 & 26.01 & 3.05 & 4.23 &4.31 &3.23 &5.01 &4.17\\
-\hline
+%\multirow{4}{*}{New Sequential Max-p} &Construction & 2.21& 4.31 & 5.95 & 12.80 & 24.39 &40.94 &89.39 %&183.14&301.93 \\
+%\cline{2-11}
+% & Optimization& 3.26 & 15.37 & 0.01 & 13.59 & 93.27 &412.92 &94.38 & 754.04 & 3547.81 \\
+%\cline{2-11}
+% & Total& 5.47 & 19.68 & 5.96 & 26.39 & 117.66 &453.86 &183.77 &937.18 &3849.74\\
+%\cline{2-11}
+% & Speedup& 2.54 & 4.03 & 26.01 & 3.05 & 4.23 &4.31 &3.23 &5.01 &4.17\\
+%\hline
 
 \end{tabular}
-\caption{Average running time comparison for three different thresholds(th = Threshold)}
+\caption{Average running time(s) for sequential, naive parallel and improved parallel algorithm(th = Threshold)}
 \label{tab:tab4}
 \end{center}
 \end{table*}
 
-\subsubsection*{Average running time comparison of the construction phase of parallel max-p
-region on 16-core Intel processor to that of 64-core AMD Opteron processor:}
+\paragraph{16-core Intel processor vs. 64-core AMD Opteron processor}
 We have also compared the running time of the construction phase of parallel max-p
 region on 16-core Intel processor to that of 64-core AMD Opteron processor. This
-comparison is done for two lattices 20x20 and 55x56 with a threshold of 100 and
-300 by using the different number of processes to find best feasible solution i.e.
-8, 16, 32, 64, 128, 256, 512. Figure~\ref{plt:plt1} presents the charts which
+comparison is shown for 55x56 lattice with a threshold of 300 by using the different number of processes to find best feasible solution. Figure~\ref{plt:plt1} presents the charts which
 show that running time of algorithm decreases with increase in the number of
-processes up to a certain limit and after that, it starts to increase again. It can
-be interpreted from the graph that for 16-core Interprocessor threshold to
-decrease running time is 64 and for 64-core AMD Opteron threshold is 128. Once
-this threshold is reached, running starts to increase again. Hence, it is clear
-from the results that we should use 64 processes for 16-core Intel system and
-128 processes for 64-core AMD system to get the best running time. We also
-analysed the CPU usage for each process for the different number of processes. For
-16-core Intel system, each process can utilize 100 percent of CPU
-capacity for up to 16 processes and after that, it decreases to 50 percent for 32
-processes. It becomes stable at 17 percent after 128 processes. For 64-core AMD
-system, each process can utilize 100 percent of CPU capacity for up to 64
-processes and starts decreasing after that. It becomes stable at 70 percent
-after 128 processes.
+processes up to a certain limit and after that, it starts to increase again. 
 
 \begin{figure*}[!htbp] 
 \centering
@@ -752,58 +740,58 @@ after 128 processes.
 \captionsetup{justification=centering,font=scriptsize,labelfont=scriptsize}
 \begin{tikzpicture}
 
-\begin{groupplot}[group style={group name=timeplots, group size=4 by 1, vertical sep=50pt},]
+\begin{groupplot}[group style={group name=timeplots, group size=1 by 1, vertical sep=50pt},]
 	
 	% (1) Construction_20_by_20_100
-        \nextgroupplot[ title=\scriptsize{\it{(a) Construction, $20\times 20$, T=100}},                
-        legend style={font=\scriptsize\selectfont, at={(.5,.5)}},   
-        legend to name={CommonLegend},
-	width=5cm,
-	xtick=data,
-	xlabel=\scriptsize{Number of processes},	
-	ylabel=\scriptsize{Construction Time (Second)},	
-	ticklabel style={font=\tiny},
-	ybar=2pt,
-	bar width=4,
-	symbolic x coords={8, 16, 32, 64, 128, 256, 512},
-	legend style={at={(0.5,-0.15)},
-	anchor=north,legend columns=-1},]
-	\addplot %C16
-	coordinates {(8, 19.7566924) (16, 10.1574373) (32, 8.69590521) (64, 8.68785) (128, 8.69443035) (256, 9.19689488)  (512, 11.0752358)};
-	\addplot %C64
-	coordinates {(8, 25.22938681) (16, 13.21703243) (32, 8.191967964) (64, 5.847429514) (128, 5.593388081) (256, 6.479811192)  (512, 9.207715988)};	
+%        \nextgroupplot[ title=\scriptsize{\it{(a) Construction, $20\times 20$, T=100}},                
+%        legend style={font=\scriptsize\selectfont, at={(.5,.5)}},   
+%        legend to name={CommonLegend},
+%	width=5cm,
+%	xtick=data,
+%	xlabel=\scriptsize{Number of processes},	
+%	ylabel=\scriptsize{Construction Time (Second)},	
+%	ticklabel style={font=\tiny},
+%	ybar=2pt,
+%	bar width=4,
+%	symbolic x coords={8, 16, 32, 64, 128, 256, 512},
+%	legend style={at={(0.5,-0.15)},
+%	anchor=north,legend columns=-1},]
+%	\addplot %C16
+%	coordinates {(8, 19.7566924) (16, 10.1574373) (32, 8.69590521) (64, 8.68785) (128, 8.69443035) (256, 9.19689488)  (512, 11.0752358)};
+%	\addplot %C64
+%	coordinates {(8, 25.22938681) (16, 13.21703243) (32, 8.191967964) (64, 5.847429514) (128, 5.593388081) (256, 6.479811192)  (512, 9.207715988)};	
 		
 	% (2) Construction_20_by_20_300
-        \nextgroupplot[ title=\scriptsize{\it{(b) Construction, $20\times 20$, T=300}},                
-	width=5cm,
-	xtick=data,
-	xlabel=\scriptsize{Number of processes},	
-	ticklabel style={font=\tiny},
-	ybar=2pt,
-	bar width=4,
-	symbolic x coords={8, 16, 32, 64, 128, 256, 512},
-	legend style={at={(0.5,-0.15)},
-	anchor=north,legend columns=-1},]
-	\addplot %C16
-	coordinates {(8, 54.3102264) (16, 27.9825938) (32, 23.5189321) (64, 22.9158623) (128, 22.704982) (256, 23.2577519)  (512, 25.2306385)};
-	\addplot %C64
-	coordinates {(8, 73.19414949) (16, 37.92048073) (32, 22.34558034) (64, 15.314605) (128, 13.84061956) (256, 14.93554544)  (512, 17.71974301)};			
+ %       \nextgroupplot[ title=\scriptsize{\it{(b) Construction, $20\times 20$, T=300}},                
+%	width=5cm,
+%	xtick=data,
+%	xlabel=\scriptsize{Number of processes},	
+%	ticklabel style={font=\tiny},
+%	ybar=2pt,
+%	bar width=4,
+%	symbolic x coords={8, 16, 32, 64, 128, 256, 512},
+%	legend style={at={(0.5,-0.15)},
+%	anchor=north,legend columns=-1},]
+%	\addplot %C16
+%	coordinates {(8, 54.3102264) (16, 27.9825938) (32, 23.5189321) (64, 22.9158623) (128, 22.704982) (256, 23.2577519)  (512, 25.2306385)};
+%	\addplot %C64
+%	coordinates {(8, 73.19414949) (16, 37.92048073) (32, 22.34558034) (64, 15.314605) (128, 13.84061956) (256, 14.93554544)  (512, 17.71974301)};			
 	%\legend{\footnotesize{16 Cores},\footnotesize{64 Cores}}
 	% (3) Construction_55_by_56_100
-        \nextgroupplot[ title=\scriptsize{\it{(c) Construction, $55\times 56$, T=100}},                
-	width=5cm,
-	xtick=data,
-	xlabel=\scriptsize{Number of processes},	
-	ticklabel style={font=\tiny},
-	ybar=2pt,
-	bar width=4,
-	symbolic x coords={8, 16, 32, 64, 128, 256, 512},
-	legend style={at={(0.5,-0.15)},
-	anchor=north,legend columns=-1},]
-	\addplot %C16
-	coordinates {(8, 1077.90734) (16, 548.340364) (32, 482.395232) (64, 441.882966) (128, 443.576337) (256, 445.830552)  (512, 450.111493)};
-	\addplot %C64
-	coordinates {(8, 1383.2089) (16, 717.1080742) (32, 404.3155475) (64, 266.8883119) (128, 242.9845831) (256, 245.6331537)  (512, 251.886045)};			
+%        \nextgroupplot[ title=\scriptsize{\it{(c) Construction, $55\times 56$, T=100}},                
+%	width=5cm,
+%	xtick=data,
+%	xlabel=\scriptsize{Number of processes},	
+%	ticklabel style={font=\tiny},
+%	ybar=2pt,
+%	bar width=4,
+%	symbolic x coords={8, 16, 32, 64, 128, 256, 512},
+%	legend style={at={(0.5,-0.15)},
+%	anchor=north,legend columns=-1},]
+%	\addplot %C16
+%	coordinates {(8, 1077.90734) (16, 548.340364) (32, 482.395232) (64, 441.882966) (128, 443.576337) (%256, 445.830552)  (512, 450.111493)};
+	%\addplot %C64
+%	coordinates {(8, 1383.2089) (16, 717.1080742) (32, 404.3155475) (64, 266.8883119) (128, 242.9845831) (256, 245.6331537)  (512, 251.886045)};			
 		
 	% (4) Construction_55_by_56_300
         \nextgroupplot[ title=\scriptsize{\it{(d) Construction, $55\times 56$, T=300}},                
@@ -822,28 +810,28 @@ after 128 processes.
 	coordinates {(8, 4120.620288) (16, 2174.580753) (32, 1234.789869) (64, 807.8640451) (128, 725.6319218) (256, 733.2447016)  (512, 748.6452534)};	
 	
       \end{groupplot}
-      \path ( $(timeplots c2r1.south east)!0.5!(timeplots c3r1.south west)$) -- node[below]{\ref{CommonLegend}} ($(timeplots c2r1.south east)!0.5!(timeplots c3r1.south west)$);
+%      \path ( $(timeplots c2r1.south east)!0.5!(timeplots c3r1.south west)$) -- node[below]{\ref{CommonLegend}} ($(timeplots c2r1.south east)!0.5!(timeplots c3r1.south west)$);
     \end{tikzpicture}
     \includegraphics[scale=0.50]{legend.png}
     \caption{Average running time of construction phase on 16-core Intel vs 64-core AMD Opteron}
     \label{plt:plt1}
   \end{figure*}
 
-\begin{figure}[h]
-\includegraphics[scale=0.85]{scale20.png}
-\end{figure}
+%\begin{figure}[h]
+%\includegraphics[scale=0.85]{scale20.png}
+%\end{figure}
 
-\begin{figure}[h]
-\includegraphics[scale=0.85]{scale33.png}
-\end{figure}
+%\begin{figure}[h]
+%\includegraphics[scale=0.85]{scale33.png}
+%\end{figure}
 
-\subsubsection*{Single lock vs multiple locks average running time comparison of the optimization phase:}
-We started by using single lock on the list of regions in optimization phase.
+\paragraph{Single lock vs multiple locks in the optimization phase}
+We started by using single lock on the entire list of regions in the optimization phase.
 This lead to a lock overhead problem. In order to reduce the lock overhead, we have
-used multiple locks i.e. one lock for each region. After using multiple locks,
-we can reduce lock overhead time. Table~\ref{tab:tab5} presents the
+used multiple locks, i.e., one lock for each region. After using multiple locks,
+we reduced lock overhead time as expected. Table~\ref{tab:tab5} presents the
 running time of the optimization phase for different lattices and different
-thresholds. It can be seen that after using multiple locks, the running time of the algorithm is reduced.
+thresholds.
 
 \begin{table*}[!htbp] 
 \begin{center}
@@ -860,13 +848,13 @@ Lattice & \multicolumn{2}{|c|}{threshold = 100} & \multicolumn{2}{|c|}{threshold
 55x56\newline(n = 3,080) & 156.47 & 109.86 & 639.63 & 320.85\\
 \hline
 \end{tabular}
-\caption{Single lock vs multiple locks average running time for optimization phase in seconds}
+\caption{Single lock vs multiple locks average running time(s) for the optimization phase}
 \label{tab:tab5}
 \end{center}
 \end{table*}
 
-\subsubsection*{Relation between number of areas moved and decrease in objective function value:}
-We have also analysed the effect of movement of areas from one region to another on
+\paragraph{Relation between number of areas moved and decrease in objective function value}
+We have analysed the effect of movement of areas from one region to another on
 objective function value. The decrease in objective function value is directly
 proportional to the movement of areas from one region to another in each
 iteration of optimization phase. More areas moving from one region to another
@@ -882,37 +870,37 @@ function value increased.
 \hline
 Iteration & Number of areas moved & Decrease in Objective Function Value & Percentage Decrease\\
 \hline
-1 & 12 & 1.59 & 0.026\\
+1 & 12 & 1.59 & 2.6\\
 \hline
-2 & 12 & 1.58 & 0.026\\
+2 & 12 & 1.58 & 2.6\\
 \hline
-3 & 11 & 1.62 & 0.028\\
+3 & 11 & 1.62 & 2.8\\
 \hline
-4 & 11 & 1.14 & 0.020\\
+4 & 11 & 1.14 & 2.0\\
 \hline
-5 & 10 & 0.94 & 0.017\\
+5 & 10 & 0.94 & 1.7\\
 \hline
-6 & 11 & 1.38 & 0.025\\
+6 & 11 & 1.38 & 2.5\\
 \hline
-7 & 10 & 0.63 & 0.012\\
+7 & 10 & 0.63 & 1.2\\
 \hline
-8 & 7 & 0.29 & 0.005\\
+8 & 7 & 0.29 & 0.5\\
 \hline
-9 & 6 & 0.54 & 0.010\\
+9 & 6 & 0.54 & 1.0\\
 \hline
-10 & 4 & 0.15 & 0.003\\
+10 & 4 & 0.15 & 0.3\\
 \hline
-11 & 2 & 0.19 & 0.004\\
+11 & 2 & 0.19 & 0.4\\
 \hline
-12 & 4 & 0.25 & 0.005\\
+12 & 4 & 0.25 & 0.5\\
 \hline
-13 & 4 & 0.09 & 0.002\\
+13 & 4 & 0.09 & 0.2\\
 \hline
-14 & 1 & 0.004 & 0.000\\
+14 & 1 & 0.004 & 0.01\\
 \hline
-15 & 1 & 0.004 & 0.000\\
+15 & 1 & 0.004 & 0.01\\
 \hline
-16 & 0 & 0 & 0.000\\
+16 & 0 & 0 & 0.00\\
 \hline
 \end{tabular}
 \caption{Decrease in objective function value with the decrease in areas moved in optimization phase for 20x20 lattice with threshold = 25}
@@ -920,25 +908,25 @@ Iteration & Number of areas moved & Decrease in Objective Function Value & Perce
 \end{center}
 \end{table*}
 
-Since we are doing the filtering of the list of areas and regions multiple times in our code, we decided to run a small experiment to explore various methods to filter the list and see which one gives the best performance. We tried the below methods and found that list compression method is the fastest of all the methods to filter the Python lists.
+%Since we are selecting areas and regions multiple times in our code, we decided to run a small experiment %to explore various methods to filter the list and see which one gives the best performance. We tried the %following methods and found that list compression method is the fastest of all the methods to filter the %Python lists.
 
-Running time using set(a) - set(b) : 2.86102294921875e-06 seconds\\
-Code - list(set(neighbors)-set(enclaves))
+%Running time using set(a) - set(b) : 2.86102294921875e-06 seconds\\
+%Code - list(set(neighbors)-set(enclaves))
 
-Running time using list compression : 2.384185791015625e-06 seconds\\
-Code - [neighbor for neighbor in neighbors if neighbor not in enclaves]
+%Running time using list compression : 2.384185791015625e-06 seconds\\
+%Code - [neighbor for neighbor in neighbors if neighbor not in enclaves]
 
-Running time using One of the lists as set : 3.337860107421875e-06 seconds\\
-Code - [neighbor for neighbor in neighbors if neighbor not in set(enclaves)]
+%Running time using One of the lists as set : 3.337860107421875e-06 seconds\\
+%Code - [neighbor for neighbor in neighbors if neighbor not in set(enclaves)]
 
-Running time using lambda function : 5.0067901611328125e-06 seconds\\
-Code - list(filter(lambda x: x not in set(enclaves), neighbors))
+%Running time using lambda function : 5.0067901611328125e-06 seconds\\
+%Code - list(filter(lambda x: x not in set(enclaves), neighbors))
 
-\subsubsection{Exploring synergy or accuracy of the parallel max-p region algorithm:}
+\subsubsection{\textbf{Exploring synergy or accuracy of the parallel max-p region algorithm}}
 
 We did the following experiments to explore the synergy of the parallel max-p region algorithm. 
 
-\subsubsection*{Analysis of top solutions after the construction phase:}
+\paragraph{Analysis of top solutions after the construction phase}
 First, we analysed the top feasible solutions obtained after construction phase of the algorithm. Table ~\ref{tab:tab8}, ~\ref{tab:tab9} and ~\ref{tab:tab10} presents the analysis for 20x20, 33x33 and 55x56 lattices with threshold 25 respectively. All the solutions present in the tables give the maximum number of regions for their respective lattice size. We can see from the table ~\ref{tab:tab8} that our algorithm will select the solution with minimum objective function value after construction phase and tries to optimize it. Hence, Solution 1 will be chosen for optimization. However, when we analysed other top solutions, we found that Solution 5, does not have minimum objective function value after construction phase, but it gives us best results after optimization phase. Similarly, in the table ~\ref{tab:tab9}, Solution 3 gives the best results after optimization, however, it will not be selected at first by the algorithm. Also, in the table ~\ref{tab:tab10}, Solution 5 gives the best results.
 
 \begin{table*}[!htbp] 
@@ -955,7 +943,7 @@ Solution 3 & 63.27 & 54.89\\
 \hline
 Solution 4 & 63.60 & 55.93\\
 \hline
-Solution 5 & 63.32 & 51.49\\
+Solution 5 & 63.32 & \textbf{51.49}\\
 \hline
 \end{tabular}
 \caption{Exploring synergy in top solutions for 20x20 lattice with threshold = 25}
@@ -973,7 +961,7 @@ Solution 1 & 173.94 & 148.38\\
 \hline
 Solution 2 & 173.72 & 148.36\\
 \hline
-Solution 3 & 174.49 & 145.25\\
+Solution 3 & 174.49 & \textbf{145.25}\\
 \hline
 Solution 4 & 174.39 & 151.35\\
 \hline
@@ -997,7 +985,7 @@ Solution 3 & 497.09 & 413.88\\
 \hline
 Solution 4 & 497.88 & 415.94\\
 \hline
-Solution 5 & 497.51 & 408.86\\
+Solution 5 & 497.51 & \textbf{408.86}\\
 \hline
 \end{tabular}
 \caption{Exploring synergy in top solutions for 55x56 lattice with threshold = 25}
@@ -1005,7 +993,7 @@ Solution 5 & 497.51 & 408.86\\
 \end{center}
 \end{table}
 
-\subsubsection*{Comparison of change in objective function value of sequential and parallel max-p region algorithm:}
+\paragraph{Comparison of change in objective function value of sequential and parallel max-p region algorithm}
 We have also analysed the change in objective function value during optimization
 phase and its relation to the number of areas moved from one region to another.
 Table~\ref{tab:tab7} presents the change in objective function value and the number
@@ -1035,7 +1023,7 @@ much better than the parallel max-p.
 \hline
 \hline
 
-\multirow{4}{*}{Parallel Max-p}  &Initial  & 62.05& 63.78 & 64.82 & 172.71 & 177.40 &187.34 &494.98 &508.21 &511.75 \\
+\multirow{4}{*}{Naive Parallel Max-p}  &Initial  & 62.05& 63.78 & 64.82 & 172.71 & 177.40 &187.34 &494.98 &508.21 &511.75 \\
 \cline{2-11}
  & Final& 51.15 & 57.41 & 64.82 & 145.25 & 157.44 &168.55 &408.84 &452.52 &469.81 \\
 \cline{2-11}
@@ -1045,7 +1033,7 @@ much better than the parallel max-p.
 \hline
 \hline
 
-\multirow{4}{*}{New Parallel Max-p} &Initial  & 62.05& 64.13 & 64.82 & 172.57 & 177.07 &178.38 &493.09 &507.36 &511.76 \\
+\multirow{4}{*}{Improved Parallel Max-p} &Initial  & 62.05& 64.13 & 64.82 & 172.57 & 177.07 &178.38 &493.09 &507.36 &511.76 \\
 \cline{2-11}
  & Final& 51.82 & 59.57 & 64.82 & 142.53 & 159.55 &173.44 &405.21 &460.42 &495.45 \\
 \cline{2-11}
@@ -1053,16 +1041,16 @@ much better than the parallel max-p.
 \cline{2-11}
  & Areas Moved& 99 & 79 & 0 & 301 & 226 &102 &968 &651 &324\\
 \hline
-\hline
+%\hline
 
-\multirow{4}{*}{New Sequential Max-p} &Initial  & 63.48& 64.22 & 64.82 & 172.62 & 177.00 &179.10 &492.28 &507.85 &512.29 \\
-\cline{2-11}
- & Final& 50.54 & 58.83 & 64.82 & 143.69 & 151.79 &173.96 &405.46 &441.85 &483.24 \\
-\cline{2-11}
- & Decrease& 12.94 & 5.39 & 0.00 & 28.93 & 25.21 &5.14 &86.82 &66.00 &29.05\\
-\cline{2-11}
- & Areas Moved& 147 & 90 & 0 & 357 & 299 &133 &1075 &1050 &652\\
-\hline
+%\multirow{4}{*}{New Sequential Max-p} &Initial  & 63.48& 64.22 & 64.82 & 172.62 & 177.00 &179.10 &492.28 %&507.85 &512.29 \\
+%\cline{2-11}
+% & Final& 50.54 & 58.83 & 64.82 & 143.69 & 151.79 &173.96 &405.46 &441.85 &483.24 \\
+%\cline{2-11}
+% & Decrease& 12.94 & 5.39 & 0.00 & 28.93 & 25.21 &5.14 &86.82 &66.00 &29.05\\
+%\cline{2-11}
+% & Areas Moved& 147 & 90 & 0 & 357 & 299 &133 &1075 &1050 &652\\
+%\hline
 
 \end{tabular}
 \caption{Change in objective function value and number of areas moved in optimization phase for three different thresholds(th = Threshold)}
@@ -1070,7 +1058,7 @@ much better than the parallel max-p.
 \end{center}
 \end{table*}
 
-\subsubsection*{Analysis of objective function value by growing regions in parallel for the construction phase:}
+\paragraph{Analysis of objective function value by growing regions in parallel for the construction phase}
 We grew regions in parallel to explore synergy in the exponential space. Usually we create 100 solutions and each solution in parallel, however, in each solution, the regions are grown in a single process. Here, we created 20 solutions and within each solution, we grew the regions in parallel. We assigned a total of 60 processes, which means 3 processes to each solution. Each solution will use these processes and try to grow maximum possible regions based on lattice size and threshold. For example, for $20\times 20$ lattice and threshold of 25, maximum possible regions are 16. These 3 processes will try to grow 16 regions in parallel by seeding from 3 different areas at a time. If any of the regions is not able to reach the minimum threshold value, all the areas of that region will be added to enclaves. Since we did it in parallel, we were able to explore the space in parallel and get the results similar to that we got by generating 100 solutions. For example, we got the maximum number of regions as 13 and objective function value as $51.52$ for $20\times 20$ lattice with the threshold of 25 by generating 20 solutions in parallel. Hence, by exploring space in parallel, we can get synergy with less number of solutions as compared to exploring it in sequence.
 
 \section{Conclusion}

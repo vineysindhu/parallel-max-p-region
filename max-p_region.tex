@@ -76,18 +76,13 @@ NP-hard problem that has applications in various domains such as political
 science, GIS, etc. In this paper, we focus on a specific case, called the Max-p
 regions problem, in which the main objective is to maximize the number of regions while
 keeping heterogeneity in each region as small as possible subject to a threshold
-constraint. The solution is
-broken into two phases. 1) Construction phase: starting from random areas (seeds), the algorithm builds each region by adding neighboring areas to each
-growing seed until the region reaches out to the threshold. Then, all the
-unassigned regions called enclaves are assigned to their neighboring regions.
-2) Optimization phase: tries to improve the feasible solution from phase one by swapping
-areas at the border of each region with areas from each neighboring region. In this paper, we
+constraint.  We
 present a parallel implementation of Max-p problem using Python multiprocessing
 library. By exploiting a intuitive data structure based on multi-locks, we
 achieves up 200-fold and 19-fold speeds up over the best sequential algorithm for
 the construction and optimization phases respectively. Also, the overall end to
 end running time of our implementation is 35 times faster than this sequential
-algorithm. We provide extensive experimental results to verify our algorithm.
+algorithm.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -132,17 +127,25 @@ which will make a region suitable for analysis. This information can be used as
 criteria to decide the number of regions.
 
 In this paper, we use the clustering model explained in~\cite{r1} as the max-p
-problem. The max-p region model is implemented in Python, therefore, to have a benchmark for evaluation of our work, we have also used Python for this research. Another reason to use Python is that lot of researchers are familiar with Python and use it on day to day basis for analysis. 
-
-The problem aggregates $n$ areas into an unknown maximum number of homogeneous regions, where each region satisfies a minimum threshold value for a
+problem. The problem aggregates $n$ areas into an unknown maximum number of
+homogeneous regions, where each region satisfies a minimum threshold value for a
 given spatial attribute. The problem is formulated as an Integer Linear
-Programming (ILP) with a two-part objective function. The algorithm has two
-phases: first, it tries to form as many initial regions as possible (the first
-part of the objective function) by starting from random areas called seeds and
-grow them until each region reaches the threshold. The remaining areas that do
-not form regions in the first step are called enclaves and are assigned to their
-proximal regions. In the second phase, the algorithm tries to optimize the objective function among those solutions with the maximum number of regions (the second part of the objective function). This goal is achieved by exchanging areas in the border of two neighboring regions. Unlike other models, this model does not impose any constraint on the shape of the regions, instead, the number of regions ($p$) and shape of the regions are data dependent and are decided by the algorithm at runtime. The
-max-p model tries to maximize the number of homogeneous regions, based on a predefined minimum threshold value. The degree of aggregation bias is minimized by maximizing the homogeneity within the regions. In this paper, we exploit parallel processing to improve the performance of the max-p model. We also use parallel synergy to improve the accuracy of solutions by trying more solutions in parallel as well as exploiting a fine parallelism model in each solution. Multiple solutions are created simultaneously on multiple processors in parallel and then compared to choose the best feasible solution. Then all the regions of the best feasible solution are processed on multiple processors in parallel to optimize and increase homogeneity within them.
+Programming (ILP) with a two-part objective function. Unlike other models, this
+model does not impose any constraint on the shape of the regions, instead, the
+number of regions ($p$) and shape of the regions are data dependent and are
+decided by the algorithm at runtime. The max-p model tries to maximize the
+number of homogeneous regions, based on a predefined minimum threshold value.
+The degree of aggregation bias is minimized by maximizing the homogeneity within
+the regions.
+
+In this paper, we exploit parallel processing to improve the
+performance of the max-p model. We also use parallel synergy to improve the
+accuracy of solutions by trying more solutions in parallel as well as exploiting
+a fine parallelism model in each solution. Multiple solutions are created
+simultaneously on multiple processors in parallel and then compared to choose
+the best feasible solution. Then all the regions of the best feasible solution
+are processed on multiple processors in parallel to optimize and increase
+homogeneity within them.
 
 In summary, our key contributions in this work are:
 \begin{itemize}
@@ -159,26 +162,14 @@ In summary, our key contributions in this work are:
 
 \end{itemize}
 
-The rest of the paper is organized as follows. In Section 2, we present literature review. In Section 3, we describe the problem statement. In Section 4, we discuss the algorithm used to solve the problem. In Section 5, we present experimental results and evaluate performance. In Section 6, we summarize the research work.
+The rest of the paper is organized as follows. In Section \ref{s:problem}, we
+ describe the problem statement. In
+Section \ref{s:algorithm} we discuss the algorithm used to solve the problem. In Section \ref{s:experimental}, we
+present experimental results and evaluate performance. In Section \ref{s:conclusion}, we
+summarize the research work.
 
-\section{Literature Review}
-In this section, we present a brief survey on various methods of clustering areas into set of homogeneous regions. Algorithm used in one of the methods~\cite{r4, r5} to aggregate areas in to regions has two parts. First part of the algorithm aggregate areas into regions using conventional clustering algorithm. In this part, areas are clustered based on the attributes and not on the locations. In second part of the algorithm, regions are created as subsets of the spatially contiguous areas from the already created clusters. Number of regions created from this method depends on the attributes used to calculate homogeneity within regions~\cite{r7}.
 
-Another method~\cite{r6, r8} uses $x$ and $y$ coordinates of the centroids of
-areas as additional attributes in conventional clustering algorithm. Due to
-these additional attributes nearby areas will be clustered together. Regions may
-not be spatially contiguous, however, contiguity of the areas within the region
-depends on the weights assigned to $x$ and $y$ coordinates as compared to other
-attributes~\cite{r24}. Increase in weights of $x$ and $y$ coordinates will
-increase the spatial contiguity within the regions, however, it will lead to
-decrease in weights assigned to other attributes which in turn decreases the
-homogeneity within the regions. The main challenge of this method is to decide on how to assign weights to the attributes~\cite{r6, r16, r20}.
-
-There are other methods~\cite{r7, r8, r14, r15, r18} that ensure spatial contiguity based on the information from neighbouring structure. For example, adapted hierarchical clustering algorithms~\cite{r11, r13, r22} allows to merge clusters only if they share common borders. Another example is graph theory based algorithms~\cite{r12, r17, r24} which represents areas and neighbouring structures as connected graphs.
-
-The choice of method to aggregate areas into homogeneous regions depends on the problem. For example, if you want the shape of region to be guided by the spatial distribution of variables, than clustering using $x$ and $y$ coordinate method is not appropriate as it generates circular regions. The method purposed in this article ensures contiguity by clustering only those areas into a region which shares a common border.
-
-\section{Problem Statement}
+\section{Problem Statement}\label{s:problem}
 The main goal of max-p region problem is to cluster the areas into the maximum number of
 homogeneous regions such that each region satisfies a predefined minimum
 threshold value for a given spatially extensive attribute~\cite{r1}. A spatially extensive
@@ -316,27 +307,24 @@ $A_{1}$\newline $y_{1} = 3000,$ $l_{1} = 23$ & $A_{2}$\newline $y_{2} = 3200,$ $
 \label{tab:tab1}
 \end{table*}
 
-As shown in Tables~\ref{tab:tab1}, there are three solutions for partitioning
+Tables~\ref{tab:tab1} show  three solutions for partitioning
 these areas where Solution 2 and 3 reach the maximum number of regions.
-Therefore, Solution 1 is dominated by other solutions with
-larger number of regions. Hence, Solution 2 and Solution 3 are the feasible solutions
+Hence, Solution 2 and Solution 3 are the feasible solutions
 as we can see that it is not possible to have more than three regions with at
-least 100 people per region. Also, we can see that Solution 3 has heterogeneity
-lower than that of Solution 2. Therefore, Solution 3 is the best feasible
-solution for this example. All the regions of Solution 3 have more than 100
-people each. 103 people in $R_{white}$, 115 people in $R_{green}$ and 105 people
-in $R_{blue}$.
+least 100 people per region. Also, we can see that Solution 3 has lower heterogeneity
+than  Solution 2. Therefore, Solution 3 is the best feasible
+solution for this example.
 
-\section{Methods}
-In this section, we present our algorithm to solve the problem of clustering
-areas into the maximum number of homogeneous regions. The algorithm has two phases, i.e.
-the construction phase and the optimization phase. The construction phase generates a
-feasible solution and optimization phase improves the feasible solution by
-minimizing the heterogeneity within the regions through local swapping of areas
-between neighbouring regions.\footnote{This two phase algorithm is adopted from~\cite{r1}. We extend the Python implementation from~\cite{r1}}
+\section{Methods}\label{s:algorithm}
+The max-p algorithm has two phases: construction and optimization. The
+construction phase generates a feasible solution and optimization phase improves
+the feasible solution by minimizing the heterogeneity within the regions through
+local swapping of areas between neighbouring regions.\footnote{This two phase
+algorithm is adopted from~\cite{r1}. We extend the Python implementation
+from~\cite{r1}}
 
 \subsection{Construction Phase}
-In this phase, areas are clustered into the maximum number of regions based on
+Areas are clustered into the maximum number of regions based on
 a minimum threshold value of the spatially extensive attribute. An initial feasible
 solution is generated at the end of this phase. We repeat this algorithm
 multiple times with random seeds (100 times for this experiment) to calculate the set of feasible
@@ -371,15 +359,14 @@ Minimize:
 Z = (-\sum_{k=1}^n \sum_{i=1}^n x_i^{k0}) *10^h + \sum_{i} \sum_{j|j>i} d_{ij} t_{ij}
 \end{equation*}
 
-The objective function consists of two parts, the first controls the number of
-regions and second controls the total heterogeneity $H(P_p)$. The first
+The objective function consists of two parts. The first
 part is obtained by adding the number of areas designated as root areas
 ($X_i^{k0}$), and the second part is obtained by summing the pairwise
 dissimilarities between areas assigned to the same region. Since the objective
 function is formulated as a minimization problem, we multiply the first term by
 minus one.
 
-These two parts are combined together in such a way that there is an implicit
+These two parts are combined in such a way that there is an implicit
 hierarchy where the number of regions comes before the impact of total
 heterogeneity. We achieve this hierarchy by multiplying the first term by a
 scaling factor $h = 1 + log(\sum_i \sum_{j|j>i} d_{ij})$. For $p$ regions the
@@ -541,7 +528,7 @@ thus requires that the adjacency graph formed on the areas is connected.
 We have tried two different algorithm for construction phase. For the first algorithm, we generate multiple solutions on multiple processes without changing the existing algorithm to generate one solution at a time. For the second algorithm, along with generating multiple solutions on multiple processes, we have also changed the growing part of the algorithm to add multiple neighbours at a time instead of one at a time. Adding multiple areas at a time, helped us to improve the running time of the construction phase of the algorithm.
 
 \subsection{Optimization Phase}
-In this phase, the best feasible solution from construction phase is optimized
+The best feasible solution from construction phase is optimized
 by minimizing heterogeneity within the regions. We use multiple processors to
 perform this task in parallel. Each processor selects a region and all its
 neighbours which are eligible to move. Neighbour areas which can be removed from
@@ -642,7 +629,7 @@ $R_1$. Once, the movement is complete, $P_1$ will release the lock on region $R_
 \footnote{These codes can be downloaded the following link: https://github.com/vineysindhu/parallel-max-p-region.
 Also the code for sequential max-p region is available at the following link: https://github.com/pysal}
 
-\section{Experimental Results}
+\section{Experimental Results}\label{s:experimental}
 \section{Performance Evaluation}
 In this section first, we briefly explain the system we used for our experiments and then presents our results.
 \subsection{Experimental Setup}
@@ -655,23 +642,39 @@ Processor 6272 with 64GB main memory for comparison against 16-core Intel.
 
 \subsection{Experiments and Results}
 
-In this section, we evaluate the performance of our algorithm. We have created
-regular lattices using $numpy$ library available in Python. Three different sets
-of lattices ($20\times 20$, $33\times 33$, $55\times 56$) are created for the
-evaluation. We considered two areas to be neighbours if and only if they share a
-line (rook). We have also used three different thresholds for spatially
-extensive attribute i.e. 25, 100 and 300. We have done several experiments to
-evaluate the performance parallel max-p region algorithm. All the experiments are done to explore either the parallel efficiency or the parallel synergy or both in the exponential space. Parallel efficiency means to reduce running time of the algorithm by using parallel processing. Parallel synergy means exploring exponential space by using parallel processing and trying to find the best feasible solution which gives us the minimum value of objective function. Our experiments show that we can achieve both efficiency and synergy by using multiple processes. We have divided the results section further into two parts, Evaluating the efficiency and Exploring synergy.
+We evaluate the performance of our algorithm over
+three different sets
+of lattices ($20\times 20$, $33\times 33$, $55\times 56$) 
+using regular lattices using $numpy$ library available in Python.
+We considered two areas to be neighbours if and only if they share
+an edge (rook). We have also used three different thresholds for spatially
+extensive attribute i.e. 25, 100 and 300.
+
+All the experiments are done to explore either the parallel
+efficiency or the parallel synergy or both in the exponential space. Parallel
+efficiency means to reduce running time of the algorithm by using parallel
+processing. Parallel synergy means exploring exponential space by using parallel
+processing and trying to find the best feasible solution which gives us the
+minimum value of objective function. Our experiments show that we can achieve
+both efficiency and synergy by using multiple processes.
 
 \subsubsection{Parallel Efficiency:}
 
-We did several experiments to evaluate the performance of our algorithm in terms of running time efficiency. 
 
 \subsubsection*{Average running time comparison of parallel and sequential max-p region algorithm:}
-First, we have compared the running time of our algorithm with that of sequential max-p
-implementation presented in~\cite{r1}. Table~\ref{tab:tab4} presents the average
-running time in seconds for different sets of lattices and different threshold
-values for both the sequential and the parallel max-p algorithm. All the timings are taken on Intel 16-core system by using 64 processes for the construction phase and for the optimization phase we have used the number of regions as the number of processes. As shown in table~\ref{tab:tab4}, the speed-up is increasing with lattice size, because smaller lattices form fewer regions. As a result, we are not able to take full advantage of multiprocessing capabilities of the system for small problems. We observed that running time for the optimization phase of a 20x20 lattice for a threshold value of 300 is almost 0, because only one region will be created for $n = 400$ and threshold 300, hence, there will be no optimization phase.
+First, we have compared the running time of our algorithm with that of
+sequential max-p implementation presented in~\cite{r1}. Table~\ref{tab:tab4}
+presents the average running time in seconds for different sets of lattices and
+different threshold values for both the sequential and the parallel max-p
+algorithm. All the timings are taken on Intel 16-core system by using 64
+processes for the construction phase and for the optimization phase we have used
+the number of regions as the number of processes. The speed-up is increasing
+with lattice size, because smaller lattices form fewer regions. As a result, we
+are not able to take full advantage of multiprocessing capabilities of the
+system for small problems. We observed that running time for the optimization
+phase of a 20x20 lattice for a threshold value of 300 is almost 0, because only
+one region will be created for $n = 400$ and threshold 300, hence, there will be
+no optimization phase.
 
 \begin{table*}[!htbp]
 \begin{center}
@@ -726,11 +729,7 @@ values for both the sequential and the parallel max-p algorithm. All the timings
 
 \subsubsection*{Average running time comparison of the construction phase of parallel max-p
 region on 16-core Intel processor to that of 64-core AMD Opteron processor:}
-We have also compared the running time of the construction phase of parallel max-p
-region on 16-core Intel processor to that of 64-core AMD Opteron processor. This
-comparison is done for two lattices 20x20 and 55x56 with a threshold of 100 and
-300 by using the different number of processes to find best feasible solution i.e.
-8, 16, 32, 64, 128, 256, 512. Figure~\ref{plt:plt1} presents the charts which
+ Figure~\ref{plt:plt1} presents the charts which
 show that running time of algorithm decreases with increase in the number of
 processes up to a certain limit and after that, it starts to increase again. It can
 be interpreted from the graph that for 16-core Interprocessor threshold to
@@ -939,7 +938,7 @@ Code - list(filter(lambda x: x not in set(enclaves), neighbors))
 We did the following experiments to explore the synergy of the parallel max-p region algorithm. 
 
 \subsubsection*{Analysis of top solutions after the construction phase:}
-First, we analysed the top feasible solutions obtained after construction phase of the algorithm. Table ~\ref{tab:tab8}, ~\ref{tab:tab9} and ~\ref{tab:tab10} presents the analysis for 20x20, 33x33 and 55x56 lattices with threshold 25 respectively. All the solutions present in the tables give the maximum number of regions for their respective lattice size. We can see from the table ~\ref{tab:tab8} that our algorithm will select the solution with minimum objective function value after construction phase and tries to optimize it. Hence, Solution 1 will be chosen for optimization. However, when we analysed other top solutions, we found that Solution 5, does not have minimum objective function value after construction phase, but it gives us best results after optimization phase. Similarly, in the table ~\ref{tab:tab9}, Solution 3 gives the best results after optimization, however, it will not be selected at first by the algorithm. Also, in the table ~\ref{tab:tab10}, Solution 5 gives the best results.
+Table ~\ref{tab:tab8}, ~\ref{tab:tab9} and ~\ref{tab:tab10} presents the analysis for 20x20, 33x33 and 55x56 lattices with threshold 25 respectively. All the solutions present in the tables give the maximum number of regions for their respective lattice size. We can see from the table ~\ref{tab:tab8} that our algorithm will select the solution with minimum objective function value after construction phase and tries to optimize it. Hence, Solution 1 will be chosen for optimization. However, when we analysed other top solutions, we found that Solution 5, does not have minimum objective function value after construction phase, but it gives us best results after optimization phase. Similarly, in the table ~\ref{tab:tab9}, Solution 3 gives the best results after optimization, however, it will not be selected at first by the algorithm. Also, in the table ~\ref{tab:tab10}, Solution 5 gives the best results.
 
 \begin{table*}[!htbp] 
 \begin{center}
@@ -1006,8 +1005,6 @@ Solution 5 & 497.51 & 408.86\\
 \end{table}
 
 \subsubsection*{Comparison of change in objective function value of sequential and parallel max-p region algorithm:}
-We have also analysed the change in objective function value during optimization
-phase and its relation to the number of areas moved from one region to another.
 Table~\ref{tab:tab7} presents the change in objective function value and the number
 of areas moved in optimization phase for both sequential max-p and parallel
 max-p algorithm. As shown in table ~\ref{tab:tab7}, the decrease in objective
@@ -1071,9 +1068,25 @@ much better than the parallel max-p.
 \end{table*}
 
 \subsubsection*{Analysis of objective function value by growing regions in parallel for the construction phase:}
-We grew regions in parallel to explore synergy in the exponential space. Usually we create 100 solutions and each solution in parallel, however, in each solution, the regions are grown in a single process. Here, we created 20 solutions and within each solution, we grew the regions in parallel. We assigned a total of 60 processes, which means 3 processes to each solution. Each solution will use these processes and try to grow maximum possible regions based on lattice size and threshold. For example, for $20\times 20$ lattice and threshold of 25, maximum possible regions are 16. These 3 processes will try to grow 16 regions in parallel by seeding from 3 different areas at a time. If any of the regions is not able to reach the minimum threshold value, all the areas of that region will be added to enclaves. Since we did it in parallel, we were able to explore the space in parallel and get the results similar to that we got by generating 100 solutions. For example, we got the maximum number of regions as 13 and objective function value as $51.52$ for $20\times 20$ lattice with the threshold of 25 by generating 20 solutions in parallel. Hence, by exploring space in parallel, we can get synergy with less number of solutions as compared to exploring it in sequence.
+Usually
+we create 100 solutions and each solution in parallel, however, in each
+solution, the regions are grown in a single process. Here, we created 20
+solutions and within each solution, we grew the regions in parallel. We assigned
+a total of 60 processes, which means 3 processes to each solution. Each solution
+will use these processes and try to grow maximum possible regions based on
+lattice size and threshold. For example, for $20\times 20$ lattice and threshold
+of 25, maximum possible regions are 16. These 3 processes will try to grow 16
+regions in parallel by seeding from 3 different areas at a time. If any of the
+regions is not able to reach the minimum threshold value, all the areas of that
+region will be added to enclaves. Since we did it in parallel, we were able to
+explore the space in parallel and get the results similar to that we got by
+generating 100 solutions. For example, we got the maximum number of regions as
+13 and objective function value as $51.52$ for $20\times 20$ lattice with the
+threshold of 25 by generating 20 solutions in parallel. Hence, by exploring
+space in parallel, we can get synergy with less number of solutions as compared
+to exploring it in sequence.
 
-\section{Conclusion}
+\section{Conclusion}\label{s:conclusion}
 In this paper, we present a parallel implementation of a constrained clustering
 problem, where our aim is to cluster areas into a set of the maximum number of
 homogeneous regions based on a minimum threshold value of a spatially extensive
